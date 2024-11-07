@@ -45,5 +45,7 @@ int main(int argc, char **argv)
 
     execv(argv[1], args);
 
+    perror("Cannot run your program");
+
     return 0;
 }
