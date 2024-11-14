@@ -44,9 +44,9 @@ int main(int argc, char **argv)
             close(fileExists);
             return 0;
         }
-
-        close(fileExists);
     }
+
+    close(fileExists);
 
     int fd = creat(argv[1], mode);
 
