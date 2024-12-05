@@ -21,9 +21,9 @@ int main()
 
     printf("Logging data to file...\n\n");
 
-    printf("Data has been logged to file successfully!\n\n");
+    printf("Logged to file successfully!\n\n");
 
-    printf("Program terminating...\n");
+    printf("Terminating...\n");
 
     close(fd);
 
