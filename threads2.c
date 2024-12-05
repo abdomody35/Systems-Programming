@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-const int numCount = 1000000;
+const int numCount = 10000000;
 
 long sum = 0;
 
@@ -52,6 +52,6 @@ int main(int argc, char **argv)
     perform((void *)&reminder);
 
     printf("Sum : %ld\n", sum);
-    printf("Average : %f\n", (float)sum / numCount);
+    printf("Average : %lg\n", (double)sum / numCount);
     return 0;
 }
