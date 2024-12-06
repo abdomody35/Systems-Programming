@@ -12,12 +12,28 @@ pthread_mutex_t mutex;
 void *perform(void *arg)
 {
     int count = *((int *)arg);
+
     for (int i = 0; i < count; i++)
     {
         int num = rand();
-        pthread_mutex_lock(&mutex);
+
+        int error = pthread_mutex_lock(&mutex);
+
+        if (error)
+        {
+            fprintf(stderr, "Error locking mutex\n");
+            exit(6);
+        }
+
         sum += num;
-        pthread_mutex_unlock(&mutex);
+
+        error = pthread_mutex_unlock(&mutex);
+
+        if (error)
+        {
+            fprintf(stderr, "Error unlocking mutex\n");
+            exit(7);
+        }
     }
 }
 
@@ -29,29 +45,65 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int threadCount = atoi(argv[1]);
+    char *endptr;
+    int threadCount = strtol(argv[1], &endptr, 10), error;
+
+    if (*endptr != '\0' || threadCount < 1)
+    {
+        fprintf(stderr, "Invalid number of threads: %s\n", argv[1]);
+        return 2;
+    }
 
     pthread_t threads[threadCount];
 
-    pthread_mutex_init(&mutex, 0);
+    error = pthread_mutex_init(&mutex, 0);
+
+    if (error)
+    {
+        fprintf(stderr, "pthread_mutex_init failed with error %d.\n", error);
+        return 3;
+    }
 
     int performCount = numCount / threadCount;
 
     for (int i = 0; i < threadCount; i++)
     {
-        pthread_create(&threads[i], NULL, &perform, (void *)&performCount);
+        int error = pthread_create(&threads[i], NULL, &perform, (void *)&performCount);
+
+        if (error)
+        {
+            fprintf(stderr, "Error creating thread %d: %d.\n", i, error);
+            return 4;
+        }
     }
 
     for (int i = 0; i < threadCount; i++)
     {
-        pthread_join(threads[i], NULL);
+        int error = pthread_join(threads[i], NULL);
+
+        if (error)
+        {
+            fprintf(stderr, "Error joining thread %d: %d.\n", i, error);
+            return 5;
+        }
     }
 
     int reminder = numCount - threadCount * performCount;
 
-    perform((void *)&reminder);
+    if (reminder)
+    {
+        perform((void *)&reminder);
+    }
+
+    error = pthread_mutex_destroy(&mutex);
+
+    if (error)
+    {
+        fprintf(stderr, "pthread_mutex_destroy failed with error %d.\n", error);
+    }
 
     printf("Sum : %ld\n", sum);
     printf("Average : %lg\n", (double)sum / numCount);
+
     return 0;
 }
