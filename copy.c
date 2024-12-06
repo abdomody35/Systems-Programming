@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include "write.h"
 
 #define BUFFER_SIZE 4096
 
@@ -40,8 +41,8 @@ int main(int argc, char **argv)
         }
         else
         {
-            printf("ERROR 3: Invalid flag. Only -f is allowed.\n");
-            return 3;
+            printf("ERROR 2: Invalid flag. Only -f is allowed.\n");
+            return 2;
         }
     }
 
@@ -49,8 +50,8 @@ int main(int argc, char **argv)
 
     if (source == -1)
     {
-        printf("ERROR 1: Could not open source file\n");
-        return 1;
+        printf("ERROR 3: Could not open source file\n");
+        return 3;
     }
 
     if (!flag)
@@ -77,9 +78,9 @@ int main(int argc, char **argv)
 
     if (destination == -1)
     {
-        printf("ERROR 2: Could not open or create destination file\n");
+        printf("ERROR 4: Could not open or create destination file\n");
         close(source);
-        return 1;
+        return 4;
     }
 
     int size;
@@ -87,10 +88,26 @@ int main(int argc, char **argv)
 
     while ((size = read(source, buffer, BUFFER_SIZE)) > 0)
     {
-        write(destination, buffer, size);
+        if (write_all(destination, buffer, size) == -1)
+        {
+            perror("write failed");
+            close(destination);
+            close(source);
+            return 4;
+        }
+    }
+
+    if (size == -1)
+    {
+        perror("read failed");
+        free(buffer);
+        close(destination);
+        close(source);
+        return 3;
     }
 
     free(buffer);
-
+    close(destination);
+    close(source);
     return 0;
 }

@@ -12,20 +12,26 @@ int main()
         return 1;
     }
 
-    dup2(fd, 1);
-    dup2(fd, 2);
+    if (dup2(fd, 1) == -1)
+    {
+        perror("dup2 failed");
+        close(fd);
+        return 2;
+    }
+
+    if (dup2(fd, 2) == -1)
+    {
+        perror("dup2 failed");
+        close(fd);
+        return 2;
+    }
 
     printf("Creating log file...\n\n");
-
     printf("Log file created successfully!\n\n");
-
     printf("Logging data to file...\n\n");
-
     printf("Logged to file successfully!\n\n");
-
     printf("Terminating...\n");
 
     close(fd);
-
     return 0;
 }

@@ -2,13 +2,25 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include "write.h"
 
 int main()
 {
-    int fds[2];
-    pipe(fds);
+    int fds[2], size;
+
+    if (pipe(fds) == -1)
+    {
+        perror("pipe failed");
+        return 1;
+    }
 
     int pid = fork();
+
+    if (pid == -1)
+    {
+        perror("fork failed");
+        return 2;
+    }
 
     if (!pid)
     {
@@ -19,40 +31,61 @@ int main()
         if (fd == -1)
         {
             perror("open failed");
-            return 1;
+            return 3;
         }
 
-        int size;
         char *buffer = (char *)malloc(1024);
 
         while ((size = read(fds[0], buffer, 1024)) > 0)
         {
-            write(1, buffer, size);
-            write(fd, buffer, size);
+            if (write_all(1, buffer, size) == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 4;
+            }
+
+            if (write_all(fd, buffer, size) == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 4;
+            }
+        }
+
+        if (size == -1)
+        {
+            perror("read failed");
+            close(fds[0]);
+            return 5;
         }
 
         free(buffer);
-
         close(fds[0]);
-
         close(fd);
-
         return 0;
     }
 
     close(fds[0]);
 
-    dup2(fds[1], 1);
-    dup2(fds[1], 2);
+    if (dup2(fds[1], 1) == -1)
+    {
+        perror("dup2 failed");
+        close(fds[1]);
+        return 6;
+    }
+
+    if (dup2(fds[1], 2) == -1)
+    {
+        perror("dup2 failed");
+        close(fds[1]);
+        return 6;
+    }
 
     printf("Creating log file...\n\n");
-
     printf("Log file created successfully!\n\n");
-
     printf("Logging data to file...\n\n");
-
     printf("Logged to file successfully!\n\n");
-
     printf("Terminating...\n");
 
     close(fds[1]);
