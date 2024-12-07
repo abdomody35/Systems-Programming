@@ -4,14 +4,20 @@
 #include <stdlib.h>
 #include "write.h"
 
-int main()
+int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: %s <program> [arg1] [arg2] ...\n", argv[0]);
+        return 1;
+    }
+
     int fds[2], size;
 
     if (pipe(fds) == -1)
     {
         perror("pipe failed");
-        return 1;
+        return 2;
     }
 
     int pid = fork();
@@ -19,7 +25,7 @@ int main()
     if (pid == -1)
     {
         perror("fork failed");
-        return 2;
+        return 3;
     }
 
     if (!pid)
@@ -31,7 +37,7 @@ int main()
         if (fd == -1)
         {
             perror("open failed");
-            return 3;
+            return 4;
         }
 
         char *buffer = (char *)malloc(1024);
@@ -42,14 +48,14 @@ int main()
             {
                 perror("write failed");
                 close(fd);
-                return 4;
+                return 5;
             }
 
             if (write_all(fd, buffer, size) == -1)
             {
                 perror("write failed");
                 close(fd);
-                return 4;
+                return 5;
             }
         }
 
@@ -57,7 +63,7 @@ int main()
         {
             perror("read failed");
             close(fds[0]);
-            return 5;
+            return 6;
         }
 
         free(buffer);
@@ -72,23 +78,30 @@ int main()
     {
         perror("dup2 failed");
         close(fds[1]);
-        return 6;
+        return 7;
     }
 
     if (dup2(fds[1], 2) == -1)
     {
         perror("dup2 failed");
         close(fds[1]);
-        return 6;
+        return 7;
     }
 
-    printf("Creating log file...\n\n");
-    printf("Log file created successfully!\n\n");
-    printf("Logging data to file...\n\n");
-    printf("Logged to file successfully!\n\n");
-    printf("Terminating...\n");
+    char *args[argc];
 
+    args[0] = argv[1];
+
+    for (int i = 2; i < argc; i++)
+    {
+        args[i - 1] = argv[i];
+    }
+
+    args[argc - 1] = NULL;
+
+    execv(argv[1], args);
+
+    perror("Cannot run your program");
     close(fds[1]);
-
-    return 0;
+    return 8;
 }
