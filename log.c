@@ -2,8 +2,14 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-int main()
+int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: %s <program> [arg1] [arg2] ...\n", argv[0]);
+        return 1;
+    }
+
     int fd = open("log.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     if (fd == -1)
@@ -26,12 +32,20 @@ int main()
         return 2;
     }
 
-    printf("Creating log file...\n\n");
-    printf("Log file created successfully!\n\n");
-    printf("Logging data to file...\n\n");
-    printf("Logged to file successfully!\n\n");
-    printf("Terminating...\n");
+    char *args[argc];
 
+    args[0] = argv[1];
+
+    for (int i = 2; i < argc; i++)
+    {
+        args[i - 1] = argv[i];
+    }
+
+    args[argc - 1] = NULL;
+
+    execv(argv[1], args);
+
+    perror("Cannot run your program");
     close(fd);
-    return 0;
+    return 3;
 }
