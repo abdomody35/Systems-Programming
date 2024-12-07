@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 int main(int argc, char **argv)
@@ -32,13 +31,11 @@ int main(int argc, char **argv)
 
     char *args[numOfArgs + 2];
 
-    args[0] = (char *)malloc(sizeof(argv[1]));
-    strcpy(args[0], argv[1]);
+    args[0] = argv[1];
 
     for (int i = 3; i < argc; i++)
     {
-        args[i - 2] = (char *)malloc(sizeof(argv[i]));
-        strcpy(args[i - 2], argv[i]);
+        args[i - 2] = argv[i];
     }
 
     args[numOfArgs + 1] = NULL;
