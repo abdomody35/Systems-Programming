@@ -1,14 +1,17 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+int EXEC_TIMEOUT = 5;
 
 int write_all(int fd, const char *buf);
 
 int main(int argc, char **argv)
 {
-    int fds[2];
+    int fds[2], size;
 
     if (pipe(fds) == -1)
     {
@@ -60,7 +63,7 @@ int main(int argc, char **argv)
         return 3;
     }
 
-    char buffer[1024];
+    char buffer[4096];
 
     while (1)
     {
@@ -150,6 +153,8 @@ int main(int argc, char **argv)
 
         if (WIFEXITED(status))
         {
+            int warningAdded = 0;
+
             if (WEXITSTATUS(status))
             {
                 if (write_all(fd, "Compilation Failed.\n\nError :\n\n") == -1)
@@ -159,11 +164,10 @@ int main(int argc, char **argv)
                     return 7;
                 }
 
-                int size;
-                char buffer[4096];
-
                 while ((size = read(0, buffer, 4096)) > 0)
                 {
+                    buffer[size - 1] = '\0';
+
                     if (write_all(fd, buffer) == -1)
                     {
                         perror("write failed");
@@ -175,12 +179,49 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            if (write_all(fd, "Compiled Successfully.\n\nOutput :\n\n") == -1)
+            if (write_all(fd, "Compiled Successfully.\n\n") == -1)
             {
                 perror("write failed");
                 close(fd);
                 return 7;
             }
+
+            while ((size = read(0, buffer, 4096)) > 0)
+            {
+                if (!warningAdded)
+                {
+                    if (write_all(fd, "Warnings:\n\n") == -1)
+                    {
+                        perror("write failed");
+                        close(fd);
+                        return 7;
+                    }
+                    warningAdded = 1;
+                }
+
+                if (write_all(fd, buffer) == -1)
+                {
+                    perror("write failed");
+                    close(fd);
+                    return 7;
+                }
+            }
+
+            if (warningAdded)
+            {
+                if (write_all(fd, "\n\n") == -1)
+                {
+                    perror("write failed");
+                    close(fd);
+                    return 7;
+                }
+            }
+        }
+
+        if (pipe(fds) == -1)
+        {
+            perror("pipe failed");
+            return 1;
         }
 
         pid = fork();
@@ -194,13 +235,15 @@ int main(int argc, char **argv)
 
         if (!pid)
         {
-            if (dup2(fd, 1) == -1)
+            close(fds[0]);
+
+            if (dup2(fds[1], 1) == -1)
             {
                 perror("dup2 failed");
                 return 3;
             }
 
-            if (dup2(fd, 2) == -1)
+            if (dup2(fds[1], 2) == -1)
             {
                 perror("dup2 failed");
                 return 3;
@@ -227,9 +270,52 @@ int main(int argc, char **argv)
             return 8;
         }
 
-        wait(&status);
+        close(fds[1]);
 
-        if (!WIFEXITED(status))
+        if (dup2(fds[0], 0) == -1)
+        {
+            perror("dup2 failed");
+            close(fds[0]);
+            return 3;
+        }
+
+        int elapsed = 0;
+
+        while (elapsed < EXEC_TIMEOUT)
+        {
+            int result = waitpid(pid, &status, WNOHANG);
+            if (result == -1)
+            {
+                perror("waitpid failed");
+                close(fd);
+                return 7;
+            }
+            else if (result == 0)
+            {
+                sleep(1);
+                elapsed++;
+                continue;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (elapsed >= EXEC_TIMEOUT)
+        {
+            kill(pid, 9);
+
+            waitpid(pid, &status, 0);
+
+            if (write_all(fd, "Program Timed out.\n") == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 7;
+            }
+        }
+        else if (!WIFEXITED(status))
         {
             if (write_all(fd, "Program Crashed.\n") == -1)
             {
@@ -238,7 +324,29 @@ int main(int argc, char **argv)
                 return 7;
             }
         }
+        else
+        {
+            if (write_all(fd, "Output: \n\n") == -1)
+            {
+                perror("write failed");
+                close(fd);
+                return 7;
+            }
 
+            while ((size = read(0, buffer, 4096)) > 0)
+            {
+                buffer[size - 1] = '\0';
+
+                if (write_all(fd, buffer) == -1)
+                {
+                    perror("write failed");
+                    close(fd);
+                    return 7;
+                }
+            }
+        }
+
+        close(fds[0]);
         close(fd);
     }
 
